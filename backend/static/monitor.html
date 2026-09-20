@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0f16" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Monitor · Descargador</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
+  <link rel="stylesheet" href="/monitor.css" />
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-left">
+      <span class="dot" id="live-dot" aria-hidden="true"></span>
+      <span class="bar-title">Monitor del sistema</span>
+    </div>
+    <div class="bar-right">
+      <span class="updated" id="updated">—</span>
+      <button class="icon-btn" id="refresh-btn" aria-label="Actualizar ahora">⟳</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- Estado principal -->
+    <section class="status-card" id="status-card">
+      <div class="status-top">
+        <span class="status-pill" id="status-pill">—</span>
+        <span class="status-rate" id="status-rate">—</span>
+      </div>
+      <h1 class="status-label" id="status-label">Consultando…</h1>
+      <ul class="reasons" id="reasons"></ul>
+    </section>
+
+    <!-- Aviso de reinicio -->
+    <section class="advice hidden" id="advice">
+      <div class="advice-head">
+        <span class="advice-icon" aria-hidden="true">⚠</span>
+        <strong>Se recomienda reiniciar el servicio</strong>
+      </div>
+      <p class="advice-reason" id="advice-reason"></p>
+      <button class="btn btn-warn" id="advice-restart">Reiniciar ahora</button>
+    </section>
+
+    <!-- Métricas -->
+    <section class="grid" id="metrics">
+      <div class="metric"><span class="metric-label">Tasa de éxito</span><span class="metric-value" id="m-rate">—</span></div>
+      <div class="metric"><span class="metric-label">Circuitos abiertos</span><span class="metric-value" id="m-circuits">—</span></div>
+      <div class="metric"><span class="metric-label">Descargas activas</span><span class="metric-value" id="m-jobs">—</span></div>
+      <div class="metric"><span class="metric-label">Motor (yt-dlp)</span><span class="metric-value" id="m-engine">—</span></div>
+      <div class="metric"><span class="metric-label">Última revisión</span><span class="metric-value" id="m-check">—</span></div>
+      <div class="metric"><span class="metric-label">FFmpeg</span><span class="metric-value" id="m-ffmpeg">—</span></div>
+    </section>
+
+    <!-- Plataformas -->
+    <section class="card">
+      <h2 class="card-title">Salud por plataforma</h2>
+      <div id="platforms" class="platform-list">
+        <p class="muted small">Sin datos todavía.</p>
+      </div>
+    </section>
+
+    <!-- Alertas -->
+    <section class="card">
+      <h2 class="card-title">Últimos problemas</h2>
+      <div id="alerts" class="alert-list">
+        <p class="muted small">Sin alertas registradas.</p>
+      </div>
+    </section>
+
+    <!-- Acciones -->
+    <section class="card">
+      <h2 class="card-title">Restablecimiento</h2>
+      <p class="muted small">
+        Las acciones requieren el token de administración (<code>VDL_ADMIN_TOKEN</code>).
+        Se guarda solo en este dispositivo.
+      </p>
+      <label class="field">
+        <span>Token de administración</span>
+        <input type="password" id="token" placeholder="X-Admin-Token" autocomplete="off" />
+      </label>
+
+      <div class="actions">
+        <button class="btn btn-danger" data-action="restart">Reiniciar servicio</button>
+        <button class="btn" data-action="reset_circuits">Reiniciar circuitos</button>
+        <button class="btn" data-action="run_canaries">Ejecutar canarios</button>
+        <button class="btn" data-action="purge">Liberar espacio</button>
+        <button class="btn" data-action="alerts_clear">Limpiar alertas</button>
+      </div>
+      <pre class="result hidden" id="action-result"></pre>
+    </section>
+
+    <footer class="foot">
+      <a href="/">← Ir al descargador</a>
+      <span id="host-label" class="muted small"></span>
+    </footer>
+  </main>
+
+  <script src="/monitor.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "Monitor del Descargador",
+  "short_name": "Monitor",
+  "description": "Estado del servicio de descargas y restablecimiento remoto.",
+  "start_url": "/monitor",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f16",
+  "theme_color": "#0d0f16",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Descargador de Video y MP3</title>
+  <meta name="description" content="Descarga videos en MP4 y audio en MP3 desde un enlace. Rápido, gratis y sin instalar nada." />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬇️</text></svg>" />
+</head>
+<body>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⬇</span>
+      <span class="brand-name">Downloader</span>
+    </div>
+    <div class="topbar-right">
+      <a class="badge badge-link" href="/monitor" title="Ver el estado del sistema">Monitor</a>
+      <span class="badge" id="health-badge" title="Estado del servidor">comprobando…</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Descarga videos y audio<br /><span class="grad">en un solo paso</span></h1>
+      <p class="sub">
+        Pega el enlace, elige la calidad y guarda el archivo.
+        Compatible con cientos de sitios: Facebook, Instagram, TikTok, YouTube, X y más.
+      </p>
+    </section>
+
+    <div class="alert alert-warn hidden" id="ffmpeg-warning">
+      <strong>FFmpeg no detectado.</strong>
+      <span id="ffmpeg-hint"></span>
+    </div>
+
+    <section class="card search-card">
+      <form id="search-form" class="search-row" autocomplete="off">
+        <label class="sr-only" for="url-input">Enlace del video</label>
+        <input
+          id="url-input"
+          type="url"
+          inputmode="url"
+          placeholder="https://www.facebook.com/watch/?v=..."
+          spellcheck="false"
+          required
+        />
+        <button type="submit" class="btn btn-primary" id="parse-btn">Analizar</button>
+      </form>
+      <div class="examples">
+        <span class="examples-label">Prueba con un enlace de:</span>
+        <button type="button" class="chip chip-ghost" data-host="facebook.com">Facebook</button>
+        <button type="button" class="chip chip-ghost" data-host="instagram.com">Instagram</button>
+        <button type="button" class="chip chip-ghost" data-host="tiktok.com">TikTok</button>
+        <button type="button" class="chip chip-ghost" data-host="youtube.com">YouTube</button>
+      </div>
+    </section>
+
+    <div id="error-box" class="alert alert-error hidden" role="alert"></div>
+
+    <!-- Esqueleto de carga -->
+    <section class="card result-card hidden" id="skeleton">
+      <div class="skel skel-thumb"></div>
+      <div class="skel-lines">
+        <div class="skel skel-line w80"></div>
+        <div class="skel skel-line w40"></div>
+        <div class="skel skel-line w60"></div>
+      </div>
+    </section>
+
+    <!-- Resultado -->
+    <section class="card result-card hidden" id="result">
+      <div class="result-head">
+        <div class="thumb-wrap">
+          <img id="thumb" alt="Miniatura del video" />
+          <span class="duration" id="duration"></span>
+        </div>
+        <div class="result-meta">
+          <h2 id="title">—</h2>
+          <p class="muted" id="uploader"></p>
+          <span class="source-badge" id="source"></span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Video · MP4</h3>
+        <div class="chips" id="video-formats"></div>
+      </div>
+
+      <div class="block">
+        <h3>Audio · MP3</h3>
+        <div class="chips">
+          <button class="chip chip-audio" data-kind="mp3">
+            <span class="chip-main">MP3 · 320 kbps</span>
+            <span class="chip-sub">solo audio</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progreso -->
+    <section class="card progress-card hidden" id="progress-card">
+      <div class="progress-head">
+        <span id="progress-label">Preparando…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+      <p class="muted small" id="progress-file"></p>
+      <a class="btn btn-success hidden" id="download-link" download>Guardar archivo</a>
+    </section>
+
+    <!-- Video privado de Facebook -->
+    <section class="card collapsible">
+      <button class="collapsible-head" id="private-toggle" aria-expanded="false" aria-controls="private-body">
+        <span>
+          <strong>Video privado de Facebook</strong>
+          <small>Requiere pegar el código fuente de la página · solo en computadora</small>
+        </span>
+        <span class="chev" aria-hidden="true">⌄</span>
+      </button>
+      <div class="collapsible-body hidden" id="private-body">
+        <ol class="steps">
+          <li>Abre el video en Facebook con tu sesión iniciada.</li>
+          <li>Haz clic en la fecha/hora de publicación del video.</li>
+          <li>Pulsa <kbd>Ctrl</kbd>+<kbd>U</kbd> (Windows) o <kbd>⌘</kbd>+<kbd>⌥</kbd>+<kbd>U</kbd> (Mac) para ver el código fuente.</li>
+          <li>Selecciona todo (<kbd>Ctrl</kbd>+<kbd>A</kbd>), copia (<kbd>Ctrl</kbd>+<kbd>C</kbd>) y pégalo aquí abajo.</li>
+        </ol>
+        <label class="sr-only" for="source-input">Código fuente de la página</label>
+        <textarea id="source-input" rows="6" placeholder="Pega aquí el código fuente HTML de la página..."></textarea>
+        <button class="btn btn-primary" id="private-btn">Extraer enlaces</button>
+        <div id="private-result" class="private-result"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>
+        Los archivos se eliminan del servidor automáticamente.
+        Usa esta herramienta solo con contenido que tengas derecho a descargar.
+      </p>
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

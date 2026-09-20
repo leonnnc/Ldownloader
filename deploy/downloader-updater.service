@@ -1,0 +1,35 @@
+# Actualizador del motor — unidad systemd (alternativa al bucle interno)
+#
+# Úsala SOLO si prefieres separar la actualización del proceso de la API.
+# En ese caso, en /etc/downloader.env pon:
+#     VDL_AUTO_UPDATE=false
+#     VDL_RESTART_COMMAND=systemctl restart downloader-api
+#
+# Instalación:
+#   sudo cp deploy/downloader-updater.service deploy/downloader-updater.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now downloader-updater.timer
+
+[Unit]
+Description=Actualizar el motor yt-dlp (validar y revertir si falla)
+Documentation=file:/opt/downloader/RESILIENCIA.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=downloader
+Group=downloader
+WorkingDirectory=/opt/downloader/backend
+EnvironmentFile=-/etc/downloader.env
+
+# El proceso hace todo: revisar, instalar, validar con canarios y revertir.
+ExecStart=/opt/downloader/.venv/bin/python -m app.updater --update
+
+# Registro de cada ejecución para poder auditar qué versión entró y cuándo.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=downloader-updater
+
+NoNewPrivileges=true
+PrivateTmp=true

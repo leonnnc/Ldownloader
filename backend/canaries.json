@@ -1,0 +1,28 @@
+{
+  "_comentario": [
+    "Canarios: enlaces reales que se prueban cada X minutos para detectar",
+    "roturas antes que los usuarios. Un canario que falla 3 veces seguidas",
+    "dispara una alerta y marca la plataforma como caída.",
+    "",
+    "IMPORTANTE: usa enlaces ESTABLES y de contenido libre o tuyo.",
+    "No pongas enlaces de contenido con derechos de autor ni videos privados:",
+    "si cambian o se borran, tendrás falsas alarmas.",
+    "",
+    "Para añadir una plataforma, agrega un objeto con:",
+    "  name          identificador corto (youtube, facebook, instagram...)",
+    "  url           enlace de prueba",
+    "  min_formats   cuántos formatos de video como mínimo debe devolver",
+    "  enabled       true/false",
+    "",
+    "El canario de YouTube de abajo está verificado: es la película de",
+    "dominio público Big Buck Bunny, de la Blender Foundation."
+  ],
+  "canaries": [
+    {
+      "name": "youtube",
+      "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      "min_formats": 3,
+      "enabled": true
+    }
+  ]
+}

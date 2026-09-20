@@ -1,0 +1,23 @@
+# Temporizador del actualizador.
+#
+# Cada 6 horas es un buen equilibrio: yt-dlp publica arreglos en días, no en
+# minutos, así que revisar más seguido solo genera ruido. Con Persistent=true,
+# si el servidor estaba apagado a la hora prevista, la ejecución se recupera
+# al volver a encenderse.
+
+[Unit]
+Description=Revisar y aplicar actualizaciones del motor cada 6 horas
+Documentation=file:/opt/downloader/RESILIENCIA.md
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=6h
+# Recupera ejecuciones perdidas si el servidor estuvo apagado.
+Persistent=true
+AccuracySec=1min
+# Reparte la carga: no todos los servidores salen a la vez.
+RandomizedDelaySec=15min
+Unit=downloader-updater.service
+
+[Install]
+WantedBy=timers.target

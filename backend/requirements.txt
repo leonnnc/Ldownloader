@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+yt-dlp>=2026.8.19
+pydantic>=2.7
+
+# FFmpeg embebido: evita tener que instalarlo a mano en local.
+# En producción se prefiere el FFmpeg del sistema (ver Dockerfile).
+imageio-ffmpeg>=0.5

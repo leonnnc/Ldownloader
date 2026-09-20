@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="42" fill="#0d0f16"/>
+  <!-- Punto de estado -->
+  <circle cx="96" cy="58" r="17" fill="#2bb87d"/>
+  <circle cx="96" cy="58" r="30" fill="none" stroke="#2bb87d" stroke-width="6" opacity="0.35"/>
+  <!-- Barras de actividad -->
+  <rect x="52" y="108" width="16" height="20" rx="5" fill="#4a5470"/>
+  <rect x="76" y="98" width="16" height="30" rx="5" fill="#4a5470"/>
+  <rect x="100" y="112" width="16" height="16" rx="5" fill="#4a5470"/>
+  <rect x="124" y="92" width="16" height="36" rx="5" fill="#4a5470"/>
+  <!-- Línea base -->
+  <rect x="48" y="142" width="96" height="8" rx="4" fill="#2a2f41"/>
+</svg>

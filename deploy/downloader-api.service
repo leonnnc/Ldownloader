@@ -1,0 +1,55 @@
+# Servicio de descargas — unidad systemd
+#
+# Instalación:
+#   sudo cp deploy/downloader-api.service /etc/systemd/system/
+#   sudo cp deploy/downloader.env.example /etc/downloader.env   # y editarlo
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now downloader-api
+#
+# El par de líneas clave para la resiliencia son Restart=always (el supervisor
+# que levanta el servicio tras un reinicio pedido por el actualizador) y
+# VDL_RESTART_AFTER_UPDATE=true (en /etc/downloader.env).
+
+[Unit]
+Description=Descargador de Video y MP3 (API)
+Documentation=file:/opt/downloader/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=downloader
+Group=downloader
+WorkingDirectory=/opt/downloader/backend
+EnvironmentFile=-/etc/downloader.env
+
+ExecStart=/opt/downloader/.venv/bin/python -m uvicorn app.main:app \
+    --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
+
+# --- Resiliencia ---------------------------------------------------------
+# El actualizador solicita el reinicio saliendo con código 0 tras aplicar una
+# versión nueva del motor. Restart=always hace que vuelva a arrancar solo.
+Restart=always
+RestartSec=5
+# Se considera salida limpia (no un fallo) para no contar como crash en bucle.
+SuccessExitStatus=0
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# --- Endurecimiento ------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/downloader
+
+# --- Alertas de systemd --------------------------------------------------
+# Si el servicio entra en bucle de reinicios, systemd avisa al log del sistema.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Install]
+WantedBy=multi-user.target

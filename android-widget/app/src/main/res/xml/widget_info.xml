@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    updatePeriodMillis: Android ignora cualquier valor por debajo de 30 minutos.
+    Aquí no se usa para refrescar de verdad (de eso se encarga WorkManager a los
+    15 minutos); se deja en el mínimo para que el sistema pida un redibujado
+    con la caché de vez en cuando.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_status"
+    android:minWidth="250dp"
+    android:minHeight="140dp"
+    android:previewLayout="@layout/widget_status"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

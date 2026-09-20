@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Monitor Descargador</string>
+    <string name="widget_name">Monitor del sistema</string>
+
+    <string name="settings_title">Monitor del sistema</string>
+    <string name="settings_intro">Conecta el widget con tu servidor de descargas.</string>
+    <string name="settings_url_label">Dirección del servidor</string>
+    <string name="settings_url_hint">http://192.168.1.50:8000</string>
+    <string name="settings_token_label">Token de administración</string>
+    <string name="settings_token_hint">VDL_ADMIN_TOKEN</string>
+    <string name="settings_token_help">Solo se necesita para reiniciar el servicio o cerrar los circuitos. Si lo dejas vacío, el widget será de solo lectura.</string>
+    <string name="settings_save">Guardar</string>
+    <string name="settings_test">Probar conexión</string>
+    <string name="settings_add_widget">Añade el widget desde la pantalla de inicio: mantén pulsado un hueco vacío y elige «Widgets» → «Monitor Descargador».</string>
+    <string name="settings_saved">Configuración guardada</string>
+    <string name="settings_need_url">Escribe la dirección del servidor</string>
+    <string name="settings_testing">Consultando…</string>
+    <string name="settings_test_ok">Conexión correcta · %1$s (%2$s)</string>
+    <string name="settings_test_fail">No se pudo conectar: %1$s</string>
+
+    <string name="widget_unknown">Sin datos</string>
+    <string name="widget_never">nunca</string>
+    <string name="widget_btn_refresh">Actualizar</string>
+    <string name="widget_btn_restart">Reiniciar</string>
+    <string name="widget_btn_reset">Circuitos</string>
+    <string name="widget_not_configured">Abre la app para configurar el servidor</string>
+    <string name="widget_offline">Sin conexión con el servidor</string>
+    <string name="widget_stale">Datos de hace %1$s</string>
+
+    <string name="widget_metric_rate">éxito %1$s</string>
+    <string name="widget_metric_circuits">circuitos %1$d</string>
+    <string name="widget_metric_engine">motor %1$s</string>
+    <string name="widget_restart_advice">⚠ Reiniciar: %1$s</string>
+    <string name="widget_restart_advice_short">⚠ Se recomienda reiniciar</string>
+</resources>

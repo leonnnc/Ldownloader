@@ -1,0 +1,53 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: downloader-api:0.1.0
+    container_name: downloader-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Los archivos descargados viven aquí y se borran solos por TTL.
+      - downloads:/data
+      # Descomenta para usar cookies de sesión (contenido privado):
+      # - ./cookies.txt:/app/cookies.txt:ro
+    environment:
+      VDL_HOST: "0.0.0.0"
+      VDL_PORT: "8000"
+      VDL_DATA_DIR: "/data"
+      VDL_FILE_TTL_MINUTES: "15"
+      VDL_MAX_CONCURRENT_JOBS: "2"
+      VDL_RATE_LIMIT_REQUESTS: "20"
+
+      # --- Mantenimiento automático del motor --------------------------
+      # Actualiza yt-dlp, valida con canarios y revierte si algo se rompe.
+      VDL_AUTO_UPDATE: "true"
+      VDL_UPDATE_INTERVAL_HOURS: "12"
+      VDL_UPDATE_CHANNEL: "stable"
+      VDL_UPDATE_ROLLBACK: "true"
+      # Al aplicarse una versión nueva, el contenedor sale y Docker lo
+      # vuelve a levantar (restart: unless-stopped) con el yt-dlp nuevo.
+      VDL_RESTART_AFTER_UPDATE: "true"
+
+      # --- Vigilancia ---------------------------------------------------
+      VDL_CANARY_ENABLED: "true"
+      VDL_CANARY_INTERVAL_MINUTES: "30"
+      # VDL_ALERT_WEBHOOK: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+
+      # --- Restricciones (recomendado en producción) --------------------
+      # VDL_ALLOWED_DOMAINS: "facebook.com,instagram.com,tiktok.com"
+      # VDL_COOKIES_FILE: "/app/cookies.txt"
+      # VDL_ADMIN_TOKEN: "cambiame"
+    # Límites razonables para que una descarga pesada no tumbe el host.
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    # Necesario si montas un proxy residencial vía red del host
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+volumes:
+  downloads:

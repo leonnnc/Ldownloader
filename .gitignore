@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------
+# Entorno y dependencias
+# ---------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---------------------------------------------------------------
+# Datos en tiempo de ejecucion
+# ---------------------------------------------------------------
+storage/
+data/
+downloads/
+cookies.txt
+cookies/
+
+# Token de administracion generado localmente. NUNCA debe subirse:
+# cualquiera con este valor puede reiniciar el servicio y borrar archivos.
+ADMIN-TOKEN.txt
+
+# ---------------------------------------------------------------
+# Registros y configuracion local
+# ---------------------------------------------------------------
+*.log
+.env
+.env.*
+
+# ---------------------------------------------------------------
+# Android
+# ---------------------------------------------------------------
+.gradle/
+build/
+local.properties
+keystore.properties
+*.jks
+*.keystore
+captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+.idea/
+
+# El SDK de Android es propio de cada maquina
+android-sdk/
+
+# ---------------------------------------------------------------
+# Sistema operativo y editores
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.swp
+*~

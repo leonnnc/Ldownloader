@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" fill="#0d0f16"/>
+  <!-- Zona segura para iconos maskable: el contenido vive en el 80% central -->
+  <circle cx="96" cy="76" r="15" fill="#2bb87d"/>
+  <circle cx="96" cy="76" r="26" fill="none" stroke="#2bb87d" stroke-width="5" opacity="0.35"/>
+  <rect x="60" y="108" width="14" height="14" rx="4" fill="#4a5470"/>
+  <rect x="82" y="100" width="14" height="22" rx="4" fill="#4a5470"/>
+  <rect x="104" y="112" width="14" height="10" rx="4" fill="#4a5470"/>
+  <rect x="126" y="96" width="14" height="26" rx="4" fill="#4a5470"/>
+</svg>
