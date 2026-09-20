@@ -1,0 +1,46 @@
+# Configuración de Caddy para producción.
+#
+# Caddy obtiene y renueva el certificado HTTPS solo. Es la forma más simple de
+# tener TLS sin tocar nada más.
+#
+# Uso:
+#   DOMAIN=descargador.tudominio.com docker compose -f deploy/docker-compose.prod.yml up -d
+#
+# Cambia {$DOMAIN} por tu dominio real, o define la variable de entorno DOMAIN.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Cabeceras de seguridad básicas
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Descargas largas: los timeouts por defecto de un proxy inverso se quedan
+	# cortos cuando un archivo de 4K tarda minutos en generarse.
+	reverse_proxy api:8000 {
+		transport http {
+			read_timeout  30m
+			write_timeout 30m
+		}
+		# El backend necesita saber la IP real del cliente para el rate limiting.
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+	}
+}
+
+# Redirige cualquier otro host a HTTPS sin certificado (evita que un escaneo
+# aleatorio obtenga un certificado para tu servidor).
+:80 {
+	respond "Servicio no disponible en este host." 404
+}

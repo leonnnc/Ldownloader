@@ -1,0 +1,75 @@
+# Despliegue de producción: API + Caddy con HTTPS automático.
+#
+# Uso:
+#   1. Copia deploy/produccion.env.example a deploy/produccion.env y edítalo
+#   2. DOMAIN=tu.dominio.com docker compose -f deploy/docker-compose.prod.yml up -d --build
+#   3. docker compose -f deploy/docker-compose.prod.yml logs -f
+#
+# El archivo se ejecuta desde la raíz del repositorio:
+#   docker compose -f deploy/docker-compose.prod.yml up -d
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: downloader-api:1.0
+    container_name: downloader-api
+    restart: unless-stopped
+    env_file:
+      - ./produccion.env
+    environment:
+      VDL_HOST: "0.0.0.0"
+      VDL_PORT: "8000"
+      VDL_DATA_DIR: "/data"
+      # El reinicio lo pide el actualizador y Docker lo levanta solo.
+      VDL_RESTART_AFTER_UPDATE: "true"
+    volumes:
+      - downloads:/data
+      # Cookies para contenido que exige sesión (opcional):
+      # - ../cookies:/app/cookies:ro
+    networks:
+      - web
+    # No publica el puerto al exterior: solo Caddy lo alcanza.
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: downloader-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN:?Define DOMAIN, por ejemplo: DOMAIN=descargador.tudominio.com}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - web
+    depends_on:
+      - api
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  downloads:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

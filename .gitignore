@@ -27,6 +27,10 @@ ADMIN-TOKEN.txt
 .env
 .env.*
 
+# Configuración de producción: contiene el token de administración y el
+# webhook de alertas. Solo existe en el servidor.
+deploy/produccion.env
+
 # ---------------------------------------------------------------
 # Android
 # ---------------------------------------------------------------

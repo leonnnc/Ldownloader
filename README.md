@@ -92,6 +92,8 @@ downloader/
 ├── docker-compose.yml
 ├── RESILIENCIA.md         Cómo evitar que el servicio se rompa
 ├── ANDROID-WIDGET.md      Widget, panel y monitor para Android
+├── DESPLIEGUE.md          Puesta en producción paso a paso
+├── abrir-firewall.ps1     Abre el puerto 8000 en el Firewall de Windows
 ├── smoke_test.py          Prueba de humo de la API
 ├── smoke_resilience.py    Prueba de la capa de resiliencia
 ├── smoke_monitor.py       Prueba del widget, panel y restablecimiento
@@ -296,6 +298,21 @@ Este MVP es de un solo proceso y guarda el estado en memoria. Para un servicio p
    consulta asesoría antes de lanzarlo como negocio.
 
 Detalle y razonamiento de cada punto: [RESILIENCIA.md](RESILIENCIA.md)
+
+### Ponerlo en producción
+
+Guía completa: **[DESPLIEGUE.md](DESPLIEGUE.md)**
+
+Lo esencial, en una línea: **sirve un VPS o un contenedor Docker, no un hosting
+compartido.** Necesita FFmpeg, procesos largos y disco temporal. Y en un servidor
+necesitarás **proxies residenciales**, o los sitios grandes bloquearán la IP en días.
+
+Con Docker y HTTPS automático:
+
+```bash
+cp deploy/produccion.env.example deploy/produccion.env   # y editarlo
+DOMAIN=tu.dominio.com docker compose -f deploy/docker-compose.prod.yml up -d --build
+```
 
 ---
 
