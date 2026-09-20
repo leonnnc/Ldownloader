@@ -19,6 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY backend/static ./static
 
+# El APK del widget se sirve en /app.apk para poder instalarlo desde el móvil.
+# Si la carpeta no existe, el endpoint devuelve un 404 con un enlace al repo.
+COPY apk ./apk
+
 RUN mkdir -p /data \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app /data

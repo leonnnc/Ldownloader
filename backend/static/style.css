@@ -459,6 +459,16 @@ textarea:focus { border-color: var(--accent); }
 .foot { text-align: center; padding-top: 8px; }
 .foot p { margin: 0; font-size: 12.5px; color: var(--text-3); max-width: 520px; margin-inline: auto; }
 
+.foot-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px !important;
+}
+.foot-links a { color: var(--accent); text-decoration: none; }
+.foot-links a:hover { text-decoration: underline; }
+
 /* ---------- Móvil ---------- */
 @media (max-width: 620px) {
   .wrap { padding-inline: 14px; }

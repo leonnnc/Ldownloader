@@ -525,6 +525,37 @@ def monitor_page() -> FileResponse:
     return FileResponse(page, media_type="text/html")
 
 
+@app.get("/app.apk", include_in_schema=False)
+def download_apk() -> FileResponse:
+    """Sirve el APK del widget.
+
+    Permite instalarlo abriendo esta dirección en el navegador del móvil, sin
+    cables ni servicios de transferencia. La carpeta `apk/` vive en la raíz del
+    proyecto, fuera de `backend/`, así que puede no existir en instalaciones
+    desplegadas sin ella.
+    """
+    apk_dir = STATIC_DIR.parent.parent / "apk"
+    candidates = sorted(apk_dir.glob("*.apk")) if apk_dir.is_dir() else []
+
+    if not candidates:
+        raise HTTPException(
+            404,
+            "Esta instalación no incluye el APK. Descárgalo del repositorio: "
+            "https://github.com/leonnnc/Ldownloader/tree/main/apk",
+        )
+
+    # Prefiere la versión release: la de depuración lleva otro identificador y
+    # no es la que conviene instalar.
+    release = [p for p in candidates if "debug" not in p.name]
+    chosen = (release or candidates)[0]
+
+    return FileResponse(
+        chosen,
+        media_type="application/vnd.android.package-archive",
+        filename=chosen.name,
+    )
+
+
 @app.post("/api/parse")
 async def api_parse(payload: ParseRequest, request: Request) -> dict:
     rate_limit(request)
