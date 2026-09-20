@@ -58,3 +58,6 @@ desktop.ini
 .vscode/
 *.swp
 *~
+
+# Estado en tiempo de ejecucion del actualizador
+backend/update_state.json
