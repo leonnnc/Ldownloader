@@ -22,6 +22,10 @@ instalado**. Eso descarta la mayoría de hostings baratos.
 > **Regla práctica:** si tu hosting no te deja ejecutar `ffmpeg -version` por SSH,
 > no sirve.
 
+> **¿Y si solo quieres probarlo?** No necesitas servidor ni dominio: se levanta
+> gratis en un Codespace de GitHub con su propia URL `https`. Salta al
+> [§10](#10-probar-gratis-y-sin-servidor-github-codespaces).
+
 ---
 
 ## 2. Requisitos mínimos del servidor
@@ -228,3 +232,52 @@ para cambios en el código del proyecto, que son mucho menos frecuentes.
 - [ ] Has probado una descarga desde el móvil, **fuera de tu red**
 - [ ] Tienes los proxies contratados, o has medido cuánto gastas sin ellos
 - [ ] La página de DMCA y el contacto están publicados (si es público)
+
+---
+
+## 10. Probar gratis y sin servidor: GitHub Codespaces
+
+GitHub **no puede alojar el servicio** —Pages solo sirve archivos estáticos, y esto
+necesita Python, FFmpeg, disco y procesos de minutos—. Pero sí puede **prestártelo
+para probar**: un Codespace es una máquina Linux con Docker y terminal, y puedes
+publicar el puerto 8000 para abrirlo desde el móvil, fuera de tu red. En otras
+palabras, la app corre igual que en producción y con URL `https`, sin contratar nada.
+
+### Qué está preparado ya
+
+El repositorio trae `.devcontainer/`, así que al abrir el Codespace se hace todo solo:
+
+| Pieza | Para qué |
+|---|---|
+| `.devcontainer/devcontainer.json` | Imagen de Python 3.12, instala FFmpeg y las dependencias, y reenvía el puerto 8000 |
+| `.devcontainer/start.sh` | Arranca el servidor en `0.0.0.0:8000` (no en `127.0.0.1`: el reenvío no lo alcanzaría) |
+
+### Paso a paso
+
+1. En el repositorio, botón verde **Code** → pestaña **Codespaces** → **Create codespace on main**.
+2. La primera vez tarda unos minutos: descarga la imagen, instala FFmpeg y pip.
+3. Cuando termine, el servidor arranca solo. Aparecerá un aviso del puerto **8000**;
+   pulsa **Open in Browser**. Esa URL (`https://TU-CODESPACE-8000.app.github.dev`)
+   es tu descargador funcionando.
+4. **Para abrirlo desde el móvil o compartirlo**: pestaña **PORTS** → clic derecho en
+   el 8000 → **Port Visibility** → **Public**. Por defecto es privado y solo lo ve tu
+   cuenta de GitHub. En público, cualquiera con el enlace puede usar el servicio.
+5. Se para solo tras un rato inactivo. **Se reinicia desde la pestaña Codespaces**, no
+   desde la URL: la dirección cambia cada vez que creas un Codespace nuevo.
+
+### Límites que conviene saber
+
+| Límite | Dato |
+|---|---|
+| Horas gratis | 120 core-hours al mes = **60 horas** en una máquina de 2 núcleos (la que usa esta configuración) |
+| Al agotarlo | GitHub suspende los Codespaces hasta el mes siguiente |
+| Almacenamiento | 15 GB-mes aparte |
+| Caducidad | El Codespace se apaga por inactividad y la URL **deja de responder** |
+| Uso previsto | Probar, no servir a nadie: es infraestructura de desarrollo |
+
+### Lo que NO cambia por estar en un Codespace
+
+Los avisos de la sección 4 siguen en pie: sin `VDL_ADMIN_TOKEN` la administración está
+apagada y el historial queda a la vista de quien llegue; sin proxies, los sitios
+grandes bloquean la IP; y `CORS` sigue abierto. Si vas a enseñar la URL a más gente,
+dedica cinco minutos a esos tres puntos — son variables de entorno, no código.
