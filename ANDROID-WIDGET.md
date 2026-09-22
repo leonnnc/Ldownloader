@@ -1,8 +1,12 @@
 # Widget y monitor para Android
 
 **El widget nativo está hecho y compilado.** El APK firmado está en
-[`apk/monitor-descargador-1.0.apk`](apk/monitor-descargador-1.0.apk) — 1,78 MB.
+[`apk/monitor-descargador-1.1.apk`](apk/monitor-descargador-1.1.apk) — 1,78 MB.
 Se instala directamente, sin Android Studio.
+
+La versión 1.1 añade el **enlace de conexión**: el monitor web entrega la dirección y el
+token ya juntos, así que no hay que escribirlos a mano en el móvil. Ver
+[§1.3 El enlace de conexión](#13-el-enlace-de-conexión).
 
 También hay un **panel web** (`GET /monitor`) que funciona sin instalar nada, y una
 tercera vía sin compilar (KWGT + Tasker) por si prefieres no instalar APKs ajenos.
@@ -64,9 +68,90 @@ Cloudflare Tunnel).
 Todo viene ya formateado como texto corto y un color hex. Es deliberado: un widget de
 Android no ejecuta lógica propia, solo pinta lo que recibe.
 
----
+### 1.3 El enlace de conexión
 
-## 2. Las tres opciones de widget nativo
+Configurar el widget a mano tiene dos problemas: escribir una dirección en el móvil es
+incómodo, y el enlace se rompe solo cuando el router cambia la IP por DHCP. Para
+arreglarlo, el monitor web tiene una tarjeta **«Conexión con la app»** con los dos datos
+en un solo sitio:
+
+- **el enlace del servidor** (la dirección a la que debe apuntar el widget), con botón
+  de copiar;
+- **el token**, con botón de copiar;
+- **un botón que configura la app sola** desde el propio teléfono;
+- y **el estado de la conexión**: cuándo habló la app con el servidor por última vez y
+  desde qué IP, o «sin contacto» si nunca lo hizo.
+
+Ese último punto es el que de verdad ahorra tiempo, porque distingue dos averías que
+desde fuera se ven igual y no se arreglan igual:
+
+| Lo que muestra | Lo que significa | Qué hacer |
+|---|---|---|
+| **sin contacto** | La app nunca llegó a hablar con el servidor | El enlace o el token están mal, o falta abrir el puerto en el firewall |
+| **app conectada · hace 2m** | La app funciona; si el widget falla, es el móvil (red, batería) | Revisar la red del móvil |
+| **app conectada · hace 3h** | Funcionaba y dejó de llegar | Probablemente la IP cambió: vuelve a conectar |
+
+#### Cómo se conecta la app sin escribir nada
+
+El botón **«Configurar la app en este teléfono»** abre un enlace con este formato:
+
+```
+vdl://pair?url=http%3A%2F%2F192.168.1.50%3A8000&token=e554beab…
+```
+
+Ese esquema `vdl://pair` está registrado en el manifiesto del APK, así que al abrirlo
+Android entrega los datos a la app, que los guarda, refresca el widget y no vuelve a
+preguntar. Para usarlo:
+
+1. Abre `http://<servidor>:8000/monitor` **en el navegador del móvil**.
+2. Escribe el token de administración una vez (se queda guardado en ese navegador).
+3. Pulsa **Configurar la app en este teléfono**.
+
+Si prefieres copiar los datos a mano, están en la misma tarjeta en dos campos separados.
+
+#### `GET /api/pairing`
+
+Todo lo anterior sale de este endpoint:
+
+```json
+{
+  "mode": "local",
+  "urls": ["http://192.168.1.50:8000"],
+  "preferred_url": "http://192.168.1.50:8000",
+  "listening": true,
+  "token_configured": true,
+  "token_masked": "e554…12a6",
+  "token": null,
+  "pairing_link": null,
+  "apk_link": "http://192.168.1.50:8000/app.apk",
+  "app": { "seen": true, "ago": "hace 2m", "ip": "192.168.1.50", "version": "1.1" },
+  "warning": null
+}
+```
+
+Dos detalles deliberados:
+
+- **El token y el enlace completo solo salen si quien pregunta demuestra conocer el
+  token** (cabecera `X-Admin-Token`). Sin esa comprobación, cualquiera que alcanzara el
+  monitor se llevaría la credencial que reinicia el servicio y borra archivos. Por eso
+  los campos salen en `null` y solo se enseña la huella (`token_masked`).
+- **`mode`** distingue si la petición llegó por un host real (`publico`: en producción
+  será tu dominio con HTTPS) o desde la propia máquina (`local`: entonces se listan las
+  direcciones de la red local). En Docker no tendría sentido ofrecer la IP del
+  contenedor, y en producción no tiene sentido ofrecer una IP interna.
+
+Además, `warning` avisa de los dos fallos que dejan al móvil sin poder conectar y que no
+se ven desde el widget: que el servidor esté escuchando **solo en `127.0.0.1`**, y que
+falte abrir el puerto en el firewall.
+
+#### Cómo sabe el servidor que la app está viva
+
+El APK envía la cabecera `X-VDL-Client: android-widget/1.1` en cada petición. Un
+middleware la registra, y de ahí sale el estado de la tarjeta. Es lo que permite decir
+«la app habló con el servidor hace 2m» en lugar de dar por hecho que todo va bien
+porque el servidor responde.
+
+---
 
 | | **A. Panel instalable** | **B. KWGT / Tasker** | **C. App nativa (APK)** |
 |---|---|---|---|
@@ -105,8 +190,12 @@ para **"echar un vistazo sin abrir nada"** y para tener el botón de reinicio a 
 
 | Archivo | Tamaño | Para qué |
 |---|---|---|
-| [`apk/monitor-descargador-1.0.apk`](apk/monitor-descargador-1.0.apk) | 1,78 MB | **Release firmada** — la que se instala |
-| [`apk/monitor-descargador-1.0-debug.apk`](apk/monitor-descargador-1.0-debug.apk) | 2,33 MB | Depuración (ID distinto, convive con la otra) |
+| [`apk/monitor-descargador-1.1.apk`](apk/monitor-descargador-1.1.apk) | 1,78 MB | **Release firmada** — la que se instala |
+| [`apk/monitor-descargador-1.1-debug.apk`](apk/monitor-descargador-1.1-debug.apk) | 2,33 MB | Depuración (ID distinto, convive con la otra) |
+
+`GET /app.apk` sirve siempre **la versión más alta** que haya en `apk/`, comparando los
+números del nombre como números (así 1.10 gana a 1.9) y prefiriendo el release sobre el
+debug. Antes elegía alfabéticamente, y eso servía la 1.0 teniendo la 1.1 al lado.
 
 ### Qué se verificó
 
@@ -139,6 +228,33 @@ para **"echar un vistazo sin abrir nada"** y para tener el botón de reinicio a 
 | Panel web `/monitor` en el navegador del móvil | ✅ renderiza completo |
 
 Capturas del proceso en [`android-widget/capturas/`](android-widget/capturas/).
+
+### Verificación de la versión 1.1
+
+Lo que se comprobó sobre el APK 1.1 recién compilado:
+
+| Comprobación | Resultado |
+|---|---|
+| Compilación release y debug | ✅ `BUILD SUCCESSFUL` |
+| Firma | ✅ mismo keystore (`monitor-release.jks`), RSA 2048, SHA-256 `a20c8e3b…` |
+| Versión empaquetada | ✅ `versionCode=2`, `versionName=1.1` |
+| Registro de `vdl://pair` en el manifiesto | ✅ esquema `vdl`, host `pair`, categoría `BROWSABLE` |
+| `launchMode` de la pantalla de configuración | ✅ `singleTask` (para que `onNewIntent` reciba el enlace) |
+| `usesCleartextTraffic` | ✅ `true` |
+| `node --check` sobre `monitor.js` | ✅ sintaxis correcta |
+| La tarjeta de conexión llega en `/monitor` | ✅ los 8 elementos presentes en el HTML servido |
+| `/api/pairing` sin token | ✅ devuelve huella (`e554…12a6`) y `pairing_link: null` |
+| `/api/pairing` con token | ✅ devuelve token y enlace completo |
+| El enlace se interpreta y coincide con el token del servidor | ✅ comprobado con un analizador de URLs |
+| Registro de `X-VDL-Client` | ✅ el servidor lo apunta con IP y hora |
+| `GET /app.apk` sirve la 1.1 | ✅ sha256 idéntico al archivo de `apk/` |
+
+**Lo que no se verificó:** el APK 1.1 **no se llegó a ejecutar** en el emulador ni en un
+móvil. Todo lo anterior es estático (compilación, manifiesto, empaquetado, API), así que
+queda razonablemente cubierto, pero conviene ser claro en lo que no: **no está probado
+que el enlace `vdl://pair` abra la app en un dispositivo real**, ni que el botón
+«Reconectar» aparezca y se oculte cuando toca. Es lo primero que hay que mirar al
+instalarlo.
 
 ### Lo que sigue sin verificarse
 
@@ -215,18 +331,44 @@ Es el mismo principio que el canario: **no saber nunca debe parecer "todo bien"*
 
 ### Instalar en el móvil
 
-1. Pasa `monitor-descargador-1.0.apk` al teléfono (cable, Google Drive, Telegram…).
+1. Pasa `monitor-descargador-1.1.apk` al teléfono (cable, Google Drive, Telegram…).
 2. Ábrelo. Android pedirá activar **"Instalar apps de origen desconocido"** para la
    app desde la que lo abras. Es normal: no está en Play Store.
-3. Instálalo y ábrelo.
-4. Escribe la dirección de tu servidor, por ejemplo `http://192.168.1.50:8000`
-   (sin barra final), y el `VDL_ADMIN_TOKEN` si quieres poder reiniciar desde ahí.
+3. Asegúrate de que el **móvil está en la misma red Wi-Fi** que el servidor.
+4. Configúralo de la forma más cómoda:
+
+   **Automática (recomendada).** Abre `http://<tu-servidor>:8000/monitor` en el
+   navegador del teléfono, escribe el token en la tarjeta «Conexión con la app» y pulsa
+   **Configurar la app en este teléfono**. El widget queda listo sin escribir nada más.
+
+   **A mano.** Abre *Monitor Descargador* y pega el **enlace** y el **token** que
+   muestra esa misma tarjeta. Son los dos campos que pide la pantalla.
+
 5. Pulsa **Probar conexión**. Debe responder "Conexión correcta · Sistema funcionando".
 6. Sal a la pantalla de inicio, mantén pulsado un hueco vacío → **Widgets** →
    **Monitor Descargador** → arrástralo.
 
 La dirección correcta es la IP de tu equipo en la red local, no `127.0.0.1`: desde el
-móvil, `127.0.0.1` es el propio móvil.
+móvil, `127.0.0.1` es el propio móvil. Si el widget queda en «Sin conexión», el motivo
+casi siempre está en el `warning` que acompaña al enlace en el monitor.
+
+### Si la conexión se cae
+
+- **Un corte pasajero no se nota.** Cada refresco reintenta hasta tres veces, así que un
+  cambio de Wi-Fi a datos o un microcorte se resuelve solo y el widget no llega a
+  parpadear.
+- **Si sigue sin poder, el widget lo dice.** A los dos fallos seguidos el punto pasa a
+  gris con el texto «Sin conexión con el servidor» —gris, no rojo: lo que falla es el
+  enlace hasta el servicio, no el servicio— y aparece un botón **Reconectar**.
+- **Los botones que no pueden funcionar desaparecen.** Sin servidor, «Circuitos» y
+  «Reiniciar» se ocultan: ofrecerlos solo confundiría.
+- **Para repararlo de verdad, vuelve a conectar.** Si la IP cambió, abre otra vez el
+  monitor en el móvil y pulsa **Configurar la app en este teléfono**: el enlace nuevo
+  entra solo, con el token incluido.
+
+> **Lo que no hace todavía:** buscar el servidor por sí solo en la red. Si la IP cambia,
+> el widget no puede adivinar la nueva sin descubrimiento mDNS/NSD. Eso está identificado
+> como siguiente paso; hoy la reparación es «reintentar + reconectar con un toque».
 
 ### Recompilarlo tú
 

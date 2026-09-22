@@ -18,14 +18,19 @@
     <string name="settings_testing">Consultando…</string>
     <string name="settings_test_ok">Conexión correcta · %1$s (%2$s)</string>
     <string name="settings_test_fail">No se pudo conectar: %1$s</string>
+    <string name="settings_paired">Enlace de conexión aplicado. Ya puedes cerrar esta pantalla.</string>
 
     <string name="widget_unknown">Sin datos</string>
     <string name="widget_never">nunca</string>
     <string name="widget_btn_refresh">Actualizar</string>
     <string name="widget_btn_restart">Reiniciar</string>
     <string name="widget_btn_reset">Circuitos</string>
+    <string name="widget_btn_reconnect">Reconectar</string>
     <string name="widget_not_configured">Abre la app para configurar el servidor</string>
     <string name="widget_offline">Sin conexión con el servidor</string>
+    <string name="widget_offline_notice">⚠ Sin conexión. Revisa que el móvil esté en la misma red, o vuelve a copiar el enlace desde el monitor.</string>
+    <string name="widget_reconnecting">Reconectando…</string>
+    <string name="widget_no_token">Falta el token en la app</string>
     <string name="widget_stale">Datos de hace %1$s</string>
 
     <string name="widget_metric_rate">éxito %1$s</string>

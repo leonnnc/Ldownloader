@@ -17,13 +17,34 @@
             el widget nunca cargaría nada.
         -->
 
+        <!--
+            singleTask: el enlace de conexión debe reutilizar la instancia que
+            ya existe, no abrir otra. Además es lo que hace que onNewIntent se
+            dispare cuando la app estaba en segundo plano.
+        -->
         <activity
             android:name=".SettingsActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                Enlace de conexión del monitor web: vdl://pair?url=…&token=…
+                Es lo que permite configurar la app sin escribir nada. El
+                monitor lo ofrece como botón «Configurar la app en este
+                teléfono», así que basta con abrir el panel desde el móvil.
+                BROWSABLE es obligatorio para que se pueda lanzar desde el
+                navegador.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vdl" android:host="pair" />
             </intent-filter>
         </activity>
 

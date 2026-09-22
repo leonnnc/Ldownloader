@@ -62,23 +62,32 @@ class WidgetProvider : AppWidgetProvider() {
             val snapshot = StatusRepository.cached(ctx)
 
             if (snapshot == null) {
+                // Configurado pero sin ningún dato todavía: es el caso de «el
+                // enlace o el token no son los correctos», así que se ofrece
+                // reconectar desde el primer momento.
                 views.setImageViewResource(R.id.status_dot, R.drawable.dot_unknown)
-                views.setTextViewText(R.id.status_label, ctx.getString(R.string.widget_unknown))
+                views.setTextViewText(R.id.status_label, ctx.getString(R.string.widget_offline))
                 views.setTextViewText(R.id.updated, "")
                 views.setTextViewText(R.id.metric_rate, "—")
                 views.setTextViewText(R.id.metric_circuits, "—")
                 views.setTextViewText(R.id.metric_engine, "—")
                 views.setViewVisibility(R.id.problem, View.GONE)
                 views.setViewVisibility(R.id.advice, View.GONE)
-                bindClicks(ctx, views)
+                bindClicks(ctx, views, reconnect = true)
                 manager.updateAppWidget(widgetId, views)
                 return
             }
 
+            val offline = Prefs.isOffline(ctx)
             val ageMs = System.currentTimeMillis() - snapshot.fetchedAt
             val stale = ageMs > STALE_AFTER_MS
 
-            val dot = if (stale) {
+            val dot = if (offline) {
+                // Sin conexión no se sabe nada: gris, nunca verde ni rojo.
+                // El rojo diría que el servicio está caído, y no es el caso:
+                // lo que falla es el enlace hasta el servicio.
+                R.drawable.dot_unknown
+            } else if (stale) {
                 R.drawable.dot_unknown
             } else {
                 when (snapshot.status) {
@@ -90,6 +99,7 @@ class WidgetProvider : AppWidgetProvider() {
             }
 
             val label = when {
+                offline -> ctx.getString(R.string.widget_offline)
                 stale && snapshot.statusLabel.isNotBlank() ->
                     "${snapshot.statusLabel} · ${ctx.getString(R.string.widget_stale, humanAge(ageMs))}"
                 stale -> ctx.getString(R.string.widget_stale, humanAge(ageMs))
@@ -140,11 +150,26 @@ class WidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.advice, advice)
             }
 
-            bindClicks(ctx, views)
+            bindClicks(ctx, views, reconnect = offline)
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun bindClicks(ctx: Context, views: RemoteViews) {
+        /**
+         * Conecta los botones y decide cuáles tienen sentido ahora.
+         *
+         * `reconnect = true` enseña «Reconectar» y esconde «Circuitos» y
+         * «Reiniciar»: sin servidor, esas dos órdenes no pueden llegar a
+         * ninguna parte, y ofrecerlas solo confunde.
+         */
+        private fun bindClicks(ctx: Context, views: RemoteViews, reconnect: Boolean = false) {
+            views.setViewVisibility(
+                R.id.btn_reconnect,
+                if (reconnect) View.VISIBLE else View.GONE
+            )
+            val adminVisibility = if (reconnect) View.GONE else View.VISIBLE
+            views.setViewVisibility(R.id.btn_reset, adminVisibility)
+            views.setViewVisibility(R.id.btn_restart, adminVisibility)
+
             views.setOnClickPendingIntent(
                 R.id.widget_root,
                 pending(ctx, ActionReceiver.ACTION_OPEN)
@@ -152,6 +177,10 @@ class WidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(
                 R.id.btn_refresh,
                 pending(ctx, ActionReceiver.ACTION_REFRESH)
+            )
+            views.setOnClickPendingIntent(
+                R.id.btn_reconnect,
+                pending(ctx, ActionReceiver.ACTION_RECONNECT)
             )
             views.setOnClickPendingIntent(
                 R.id.btn_reset,

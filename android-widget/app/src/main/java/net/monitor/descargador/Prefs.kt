@@ -17,6 +17,11 @@ object Prefs {
     private const val KEY_TOKEN = "admin_token"
     private const val KEY_NOTICE = "last_notice"
     private const val KEY_NOTICE_AT = "last_notice_at"
+    private const val KEY_OFFLINE = "offline"
+    private const val KEY_STREAK = "failure_streak"
+
+    /** Fallos seguidos antes de dar la conexión por perdida. */
+    const val OFFLINE_AFTER_FAILURES = 2
 
     /** Cuánto tiempo se muestra el resultado de una acción en el widget. */
     const val NOTICE_TTL_MS = 90_000L
@@ -47,6 +52,32 @@ object Prefs {
             .putString(KEY_NOTICE, text)
             .putLong(KEY_NOTICE_AT, System.currentTimeMillis())
             .apply()
+    }
+
+    /**
+     * Estado de la conexión con el servidor.
+     *
+     * No se marca como perdida al primer fallo: un corte de red de un segundo
+     * no debe cambiar el widget a rojo. A partir de [OFFLINE_AFTER_FAILURES]
+     * fallos seguidos sí, y entonces el widget enseña el botón de reconectar.
+     */
+    fun isOffline(ctx: Context): Boolean = sp(ctx).getBoolean(KEY_OFFLINE, false)
+
+    fun setOffline(ctx: Context, value: Boolean) {
+        sp(ctx).edit().putBoolean(KEY_OFFLINE, value).apply()
+    }
+
+    fun failureStreak(ctx: Context): Int = sp(ctx).getInt(KEY_STREAK, 0)
+
+    /** Suma un fallo y devuelve la racha resultante. */
+    fun registerFailure(ctx: Context): Int {
+        val streak = failureStreak(ctx) + 1
+        sp(ctx).edit().putInt(KEY_STREAK, streak).apply()
+        return streak
+    }
+
+    fun clearFailures(ctx: Context) {
+        sp(ctx).edit().putInt(KEY_STREAK, 0).putBoolean(KEY_OFFLINE, false).apply()
     }
 
     fun notice(ctx: Context): String? {

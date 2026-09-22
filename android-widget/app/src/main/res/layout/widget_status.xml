@@ -108,6 +108,18 @@
             style="@style/WidgetButton"
             android:text="@string/widget_btn_refresh" />
 
+        <!--
+            Solo aparece cuando la conexión se ha dado por perdida. Ofrecer
+            «Circuitos» y «Reiniciar» en ese momento sería ofrecer botones que
+            no pueden funcionar: sin servidor no hay nada que reiniciar.
+        -->
+        <Button
+            android:id="@+id/btn_reconnect"
+            style="@style/WidgetButton"
+            android:layout_marginStart="6dp"
+            android:text="@string/widget_btn_reconnect"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/btn_reset"
             style="@style/WidgetButton"

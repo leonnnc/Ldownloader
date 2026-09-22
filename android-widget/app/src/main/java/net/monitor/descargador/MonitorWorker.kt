@@ -22,8 +22,12 @@ import java.util.concurrent.TimeUnit
  *
  *  - Periódicamente cada 15 minutos (el mínimo que Android respeta de verdad;
  *    `updatePeriodMillis` por debajo de 30 min se ignora).
- *  - Al pulsar «Actualizar» en el widget.
+ *  - Al pulsar «Actualizar» o «Reconectar» en el widget.
  *  - Al pulsar «Reiniciar» o «Circuitos», que además lanzan la orden al servidor.
+ *
+ * Aquí vive también la autorreparación: si la conexión falla, se reintenta
+ * antes de dar la conexión por perdida, y solo entonces el widget lo dice y
+ * ofrece reconectar. Un corte de un segundo no debe pintar una avería.
  */
 class MonitorWorker(
     appContext: Context,
@@ -33,12 +37,24 @@ class MonitorWorker(
     companion object {
         const val KEY_ACTION = "action"
         const val ACTION_REFRESH = "refresh"
+        const val ACTION_RECONNECT = "reconnect"
         const val ACTION_RESTART = "restart"
         const val ACTION_RESET_CIRCUITS = "reset_circuits"
 
         private const val UNIQUE_REFRESH = "monitor-refresh"
         private const val UNIQUE_ACTION = "monitor-action"
         private const val UNIQUE_PERIODIC = "monitor-periodic"
+
+        /**
+         * Intentos por refresco, y espera entre ellos.
+         *
+         * El caso típico que cubre: el móvil está cambiando de red (Wi-Fi a
+         * datos, o al revés) y la primera petición se pierde sin que haya nada
+         * roto. Con un segundo intento se recupera solo y el widget no llega a
+         * mostrar el aviso de «sin conexión».
+         */
+        private const val ATTEMPTS = 3
+        private const val RETRY_DELAY_MS = 1200L
 
         private fun networkOnly() = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -92,22 +108,24 @@ class MonitorWorker(
         val action = inputData.getString(KEY_ACTION) ?: ACTION_REFRESH
         val baseUrl = Prefs.baseUrl(ctx)
 
-        // 1. Orden de administración, si la hay.
-        if (action != ACTION_REFRESH) {
-            val path = when (action) {
-                ACTION_RESTART -> "/api/admin/restart"
-                ACTION_RESET_CIRCUITS -> "/api/admin/circuits/reset"
-                else -> null
-            }
+        // 1. Orden de administración, si la hay. «Reconectar» no es una orden:
+        //    es un refresco con las pilas cargadas, así que cae en el else.
+        val adminPath = when (action) {
+            ACTION_RESTART -> "/api/admin/restart"
+            ACTION_RESET_CIRCUITS -> "/api/admin/circuits/reset"
+            else -> null
+        }
 
+        if (adminPath != null) {
             val notice = when {
-                path == null -> null
-                !Prefs.hasToken(ctx) -> "Falta el token en la app"
+                !Prefs.hasToken(ctx) -> ctx.getString(R.string.widget_no_token)
                 else -> when (
-                    val result = StatusRepository.request(baseUrl, path, Prefs.token(ctx), "POST")
+                    val outcome = StatusRepository.request(
+                        baseUrl, adminPath, Prefs.token(ctx), "POST"
+                    )
                 ) {
                     is FetchResult.Ok -> successMessage(action)
-                    is FetchResult.Failed -> "Error: ${result.message}"
+                    is FetchResult.Failed -> "Error: ${outcome.message}"
                 }
             }
             Prefs.setNotice(ctx, notice)
@@ -116,18 +134,53 @@ class MonitorWorker(
             Prefs.setNotice(ctx, null)
         }
 
-        // 2. Estado actualizado.
-        val result = StatusRepository.request(baseUrl, "/api/widget")
+        // 2. Estado actualizado. Si falla, se conserva la caché a propósito: el
+        //    widget mostrará el último dato conocido junto con su antigüedad.
+        //    Es mejor que un widget en blanco, siempre que deje claro que el
+        //    dato es viejo — de eso se encarga WidgetProvider con `stale`.
+        val result = fetchWithRetries(baseUrl)
+
         if (result is FetchResult.Ok) {
             StatusRepository.save(ctx, result.snapshot)
+            Prefs.clearFailures(ctx)
+        } else {
+            val streak = Prefs.registerFailure(ctx)
+            if (streak >= Prefs.OFFLINE_AFTER_FAILURES) {
+                Prefs.setOffline(ctx, true)
+                Prefs.setNotice(ctx, ctx.getString(R.string.widget_offline_notice))
+            }
         }
-        // Si falla, se conserva la caché a propósito: el widget mostrará el
-        // último dato conocido junto con su antigüedad. Es mejor que un widget
-        // en blanco, siempre que deje claro que el dato es viejo.
 
         // 3. Redibujar con lo que haya.
         WidgetProvider.updateAll(ctx)
 
         return if (result is FetchResult.Ok) Result.success() else Result.retry()
+    }
+
+    /**
+     * Pide el estado dando varias oportunidades.
+     *
+     * Se reintenta aquí, dentro del mismo trabajo y en el mismo hilo de fondo,
+     * para que un fallo pasajero no llegue nunca a pintarse en el widget.
+     */
+    private fun fetchWithRetries(baseUrl: String): FetchResult {
+        var last: FetchResult = FetchResult.Failed("sin intentos")
+
+        repeat(ATTEMPTS) { index ->
+            last = StatusRepository.request(baseUrl, "/api/widget")
+            if (last is FetchResult.Ok) return last
+
+            if (index < ATTEMPTS - 1) {
+                try {
+                    Thread.sleep(RETRY_DELAY_MS)
+                } catch (interrupted: InterruptedException) {
+                    // El sistema está parando el trabajo: no insistir.
+                    Thread.currentThread().interrupt()
+                    return last
+                }
+            }
+        }
+
+        return last
     }
 }

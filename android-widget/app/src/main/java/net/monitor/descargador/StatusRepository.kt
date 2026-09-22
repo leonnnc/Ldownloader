@@ -32,6 +32,16 @@ object StatusRepository {
     private const val CACHE = "monitor_cache"
     private const val TIMEOUT_MS = 12_000
 
+    /**
+     * Identificador que viaja en cada petición.
+     *
+     * El servidor lo usa para saber cuándo habló la app por última vez, y así
+     * el monitor web puede distinguir «la app nunca se configuró» de «la app
+     * se configuró y luego la dirección se movió». Son dos averías distintas
+     * que desde fuera se ven igual.
+     */
+    const val CLIENT = "android-widget/1.1"
+
     // ---------------------------------------------------------------------
     // Red
     // ---------------------------------------------------------------------
@@ -56,6 +66,7 @@ object StatusRepository {
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
                 setRequestProperty("Accept", "application/json")
+                setRequestProperty("X-VDL-Client", CLIENT)
                 if (!token.isNullOrBlank()) {
                     setRequestProperty("X-Admin-Token", token)
                 }
