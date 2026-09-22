@@ -144,9 +144,9 @@ reinicio**, a diferencia de los registros del servidor. Es acotado: conserva las
 archivo contiene direcciones IP y enlaces, así que está en `.gitignore`; pon
 `VDL_HISTORY_ENABLED=false` si no quieres conservar rastro ninguno.
 
-> La IP que muestra el panel es la que **declara el cliente**. Mientras no se corrija
-> el punto 4 de [REVISION.md](REVISION.md), sale de `X-Forwarded-For` y es
-> falsificable, así que sirve como pista, no como prueba.
+> La IP que muestra el panel es la que **declara el cliente**: sale de
+> `X-Forwarded-For`. Mientras el servicio esté detrás de un proxy que no valide esa
+> cabecera, el dato es falsificable, así que sirve como pista y no como prueba.
 
 ### Cómo se entra al panel (acceso deliberadamente invisible)
 

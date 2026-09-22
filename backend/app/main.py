@@ -821,9 +821,9 @@ async def api_download(payload: DownloadRequest, request: Request) -> dict:
     if thumbnail and urlparse(thumbnail).scheme.lower() not in ("http", "https"):
         thumbnail = None
 
-    # La IP solo se usa para el historial del panel. Ojo: mientras el punto 4 de
-    # REVISION.md no esté corregido, sale de X-Forwarded-For y es falsificable,
-    # así que en el panel se etiqueta como «IP declarada», no como certeza.
+    # La IP solo se usa para el historial del panel. Ojo: sale de X-Forwarded-For
+    # y es falsificable mientras el proxy no valide esa cabecera, así que en el
+    # panel se etiqueta como «IP declarada», no como certeza.
     job = store.create(
         url=url,
         kind=payload.kind,
