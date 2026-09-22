@@ -55,6 +55,34 @@
       <div class="metric"><span class="metric-label">FFmpeg</span><span class="metric-value" id="m-ffmpeg">—</span></div>
     </section>
 
+    <!-- Historial de descargas -->
+    <section class="card" id="history-card">
+      <h2 class="card-title">Historial de descargas</h2>
+
+      <div class="hist-summary" id="hist-summary">—</div>
+      <p class="muted small" id="hist-note">Consultando…</p>
+
+      <div class="hist-controls">
+        <input
+          id="hist-filter"
+          class="hist-filter"
+          type="search"
+          aria-label="Filtrar el historial de descargas"
+          placeholder="Filtrar por IP, título, enlace o plataforma"
+          autocomplete="off"
+        />
+        <button class="btn btn-mini" type="button" id="hist-refresh">Actualizar</button>
+      </div>
+
+      <div id="history" class="hist-list">
+        <p class="muted small">Sin descargas registradas todavía.</p>
+      </div>
+
+      <button class="btn btn-danger btn-block" type="button" data-action="history_clear">
+        Vaciar historial
+      </button>
+    </section>
+
     <!-- Plataformas -->
     <section class="card">
       <h2 class="card-title">Salud por plataforma</h2>
@@ -71,17 +99,57 @@
       </div>
     </section>
 
-    <!-- Acciones -->
-    <section class="card">
-      <h2 class="card-title">Restablecimiento</h2>
-      <p class="muted small">
-        Las acciones requieren el token de administración (<code>VDL_ADMIN_TOKEN</code>).
-        Se guarda solo en este dispositivo.
-      </p>
+    <!-- Conexión con la app -->
+    <section class="card" id="pairing-card">
+      <h2 class="card-title">Conexión con la app</h2>
+
       <label class="field">
         <span>Token de administración</span>
         <input type="password" id="token" placeholder="X-Admin-Token" autocomplete="off" />
       </label>
+      <p class="muted small">
+        El mismo valor de <code>VDL_ADMIN_TOKEN</code> en el servidor. Se guarda
+        solo en este dispositivo, y con él se rellenan los dos datos que pide el
+        widget: el enlace y el token.
+      </p>
+
+      <div class="pair-status">
+        <span class="pair-badge" id="pair-badge">—</span>
+        <span class="pair-text" id="pair-text">Comprobando…</span>
+      </div>
+
+      <div id="pair-extra" class="hidden">
+        <h3 class="sub-title">1 · Enlace del servidor</h3>
+        <div class="copy-row">
+          <code class="copy-value" id="pair-url">—</code>
+          <button class="btn btn-mini" type="button" id="copy-url">Copiar</button>
+        </div>
+
+        <h3 class="sub-title">2 · Token</h3>
+        <div class="copy-row">
+          <code class="copy-value" id="pair-token">—</code>
+          <button class="btn btn-mini" type="button" id="copy-token">Copiar</button>
+        </div>
+
+        <a class="btn btn-primary btn-block hidden" id="pair-open" href="#">
+          Configurar la app en este teléfono
+        </a>
+        <p class="muted small" id="pair-open-note">
+          En el widget del móvil: pantalla <em>Monitor del sistema</em> → pega el
+          enlace y el token → Guardar.
+        </p>
+
+        <p class="muted small" id="pair-warning"></p>
+      </div>
+    </section>
+
+    <!-- Acciones -->
+    <section class="card">
+      <h2 class="card-title">Restablecimiento</h2>
+      <p class="muted small">
+        Usa el token del apartado anterior. Si el campo está vacío, estas
+        acciones responderán 404.
+      </p>
 
       <div class="actions">
         <button class="btn btn-danger" data-action="restart">Reiniciar servicio</button>
@@ -96,6 +164,8 @@
     <footer class="foot">
       <a href="/">← Ir al descargador</a>
       <a href="/app.apk" download>Descargar app Android</a>
+      <a href="/terminos">Términos</a>
+      <a href="/privacidad">Privacidad</a>
       <span id="host-label" class="muted small"></span>
     </footer>
   </main>

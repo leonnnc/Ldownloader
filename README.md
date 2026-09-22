@@ -79,10 +79,13 @@ downloader/
 │   │   ├── resilience.py  Reintentos con backoff + circuit breaker
 │   │   ├── metrics.py     Tasa de éxito y salud por plataforma
 │   │   ├── alerts.py      Avisos por webhook + historial
+│   │   ├── history.py     Historial de descargas: quién pidió qué enlace
 │   │   └── status.py      Estado del sistema (alimenta widget y panel)
 │   ├── static/
 │   │   ├── index.html …   Interfaz del descargador
-│   │   └── monitor.html … Panel de control (móvil, instalable)
+│   │   ├── monitor.html … Panel de control (móvil, instalable)
+│   │   ├── terminos.html    Términos de Servicio
+│   │   └── privacidad.html  Política de Privacidad
 │   ├── canaries.json      Enlaces de prueba por plataforma
 │   └── requirements.txt
 ├── deploy/                Unidades systemd + plantilla de configuración
@@ -106,8 +109,61 @@ downloader/
 ## Monitor y restablecimiento desde el móvil
 
 `GET /monitor` es un panel de control pensado para el móvil: estado general, salud
-por plataforma, últimos problemas y **botones de restablecimiento**. Se instala en la
-pantalla de inicio de Android como acceso directo o como PWA.
+por plataforma, **historial de descargas**, últimos problemas y **botones de
+restablecimiento**. Se instala en la pantalla de inicio de Android como acceso directo
+o como PWA.
+
+### Carrusel de la portada
+
+Encima del titular y del formulario hay una tira de **últimas descargas**: tarjetas
+con la miniatura, el título, la plataforma y la marca MP4/MP3. Si el archivo todavía
+está en el almacén temporal, la tarjeta **reproduce el vídeo de verdad** (al pasar el
+ratón o al tocar); cuando expira, se queda la miniatura. Al lado, tres pasos escuetos
+de cómo se descarga.
+
+Lo alimenta `GET /api/gallery`, que es **público y solo expone título, miniatura,
+plataforma, formato y fecha**. Nunca la IP ni el enlace de origen: el enlace puede
+llevar identificadores de quien lo pidió. El carrusel no aparece si hay menos de
+`VDL_GALLERY_MIN` entradas —una fila con una sola tarjeta se ve rota— y las flechas
+‹ › se ocultan solas cuando todas caben sin desplazar.
+
+Si no quieres que la portada enseñe la actividad de nadie:
+`VDL_GALLERY_ENABLED=false` y desaparece.
+
+### Historial de descargas
+
+La primera tarjeta del panel responde a «¿quién pidió qué enlace y cómo acabó?». Por
+cada descarga anota la **IP** de quien la pidió, el **enlace** de origen, el formato y
+el resultado, con el motivo del error si falló. Tiene buscador propio (filtra por IP,
+título, enlace o plataforma) y cada entrada lleva el enlace tal cual, para abrirlo o
+copiarlo.
+
+Se guarda en `backend/history.jsonl` (una línea por descarga) y **sobrevive al
+reinicio**, a diferencia de los registros del servidor. Es acotado: conserva las
+últimas `VDL_HISTORY_MAX` entradas —300 por defecto— y va soltando las más viejas. El
+archivo contiene direcciones IP y enlaces, así que está en `.gitignore`; pon
+`VDL_HISTORY_ENABLED=false` si no quieres conservar rastro ninguno.
+
+> La IP que muestra el panel es la que **declara el cliente**. Mientras no se corrija
+> el punto 4 de [REVISION.md](REVISION.md), sale de `X-Forwarded-For` y es
+> falsificable, así que sirve como pista, no como prueba.
+
+### Cómo se entra al panel (acceso deliberadamente invisible)
+
+La página pública **no muestra ningún botón, enlace ni indicador de estado** hacia el
+panel: ni en la barra superior, ni en el pie. Se entra de tres maneras:
+
+| Entrada | Cómo |
+|---|---|
+| Toques en el logotipo | Cinco toques seguidos sobre «Downloader», en menos de 2,5 s (ratón o dedo) |
+| Atajo de teclado | `Ctrl` + `Alt` + `M` |
+| Dirección directa | `http://tu-servidor/monitor` |
+
+La combinación se cambia en `backend/static/app.js` (`ACCESS_TAPS`, `ACCESS_WINDOW_MS`).
+Los botones visibles que había antes —el enlace «Monitor» y la píldora de estado
+«listo»— se retiraron: el estado del sistema se consulta aquí, no en la página pública.
+El único aviso que sigue apareciendo al visitante es el de FFmpeg ausente, porque afecta
+de verdad a lo que puede descargar.
 
 Además, `GET /api/widget` devuelve un payload compacto y ya formateado, pensado
 específicamente para un widget de Android (texto corto + color, sin lógica), y
@@ -123,6 +179,14 @@ soporta los botones de acción del widget.
 | `purge` | Libera espacio en disco | Si el disco se llena (respeta descargas activas) |
 | `alerts_clear` | Vacía el historial de alertas | Tras resolver un incidente |
 
+El panel incluye además una tarjeta **«Conexión con la app»**: el enlace del servidor y
+el token en un solo sitio, con botón de copiar y un botón que configura el widget del
+teléfono sin escribir nada. Y, sobre todo, el **estado real de la conexión**: cuándo
+habló la app por última vez y desde qué IP, o «sin contacto» si nunca lo hizo. Eso
+distingue las dos averías que desde el widget se ven igual: «nunca se configuró» y «se
+configuró y luego cambió la IP». Detalle en
+[ANDROID-WIDGET.md §1.3](ANDROID-WIDGET.md#13-el-enlace-de-conexión).
+
 Un **vigilante** revisa el estado cada 2 minutos y avisa solo cuando **cambia**
 (de sano a degradado, a caído, y también al recuperarse), en lugar de avisar en cada
 error de usuario.
@@ -133,12 +197,20 @@ APK compilado y firmado, listo para instalar:
 
 | Archivo | Tamaño |
 |---|---|
-| [`apk/monitor-descargador-1.0.apk`](apk/monitor-descargador-1.0.apk) | 1,78 MB — release firmada |
-| [`apk/monitor-descargador-1.0-debug.apk`](apk/monitor-descargador-1.0-debug.apk) | 2,33 MB — depuración |
+| [`apk/monitor-descargador-1.1.apk`](apk/monitor-descargador-1.1.apk) | 1,78 MB — release firmada |
+| [`apk/monitor-descargador-1.1-debug.apk`](apk/monitor-descargador-1.1-debug.apk) | 2,33 MB — depuración |
+
+También desde el propio móvil, sin cables: `GET /app.apk` sirve la versión más alta que
+haya en `apk/`.
 
 Muestra el estado en la pantalla de inicio (punto verde/ámbar/rojo), el último
 problema, la tasa de éxito, los circuitos abiertos y la versión del motor, con botones
 para **actualizar**, **cerrar circuitos** y **reiniciar el servicio**.
+
+Si la conexión se pierde, no falla en silencio: reintenta antes de darse por vencido, y
+tras dos fallos seguidos el punto pasa a gris con «Sin conexión con el servidor» y
+aparece un botón **Reconectar** (los botones de administración se ocultan, porque sin
+servidor no pueden hacer nada).
 
 Se refresca cada 15 minutos — el mínimo que Android respeta de verdad; un widget no
 puede ser tiempo real. Detalles, fuentes y cómo recompilarlo en
@@ -183,6 +255,13 @@ Sin supervisor, la actualización se instala en disco pero **nunca llega a usars
 | `GET /api/widget` | Payload compacto para el widget de Android |
 | `GET /api/monitor` | Estado completo para el panel de control |
 | `GET /monitor` | Panel de control (interfaz) |
+| `GET /terminos` | Términos de Servicio (también responde en `/legal`) |
+| `GET /privacidad` | Política de Privacidad |
+| `GET /api/history` | Historial de descargas: IP, enlace, formato y resultado |
+| `GET /api/gallery` | Últimas descargas para el carrusel (sin IP ni enlace) |
+| `GET /api/preview/{job_id}` | Reproduce el archivo en línea mientras siga en el almacén |
+| `GET /api/pairing` | Enlace y token para conectar la app, y si la app está viva |
+| `GET /app.apk` | Descarga del widget de Android (la versión más alta de `apk/`) |
 | `GET /api/metrics` | Tasa de éxito, salud por plataforma, canarios |
 | `GET /api/canary` | Último resultado de cada canario |
 
@@ -197,6 +276,7 @@ Todas las rutas `/api/admin/*` requieren la cabecera `X-Admin-Token`:
 | `POST /api/admin/canaries/reload` | Recargar `canaries.json` sin reiniciar |
 | `POST /api/admin/storage/purge` | Liberar espacio en disco |
 | `POST /api/admin/alerts/clear` | Vaciar el historial de alertas |
+| `POST /api/admin/history/clear` | Vaciar el historial de descargas |
 
 ---
 
@@ -253,6 +333,12 @@ Todas las variables son opcionales.
 | `VDL_PROXY` | vacío | Proxy general para las descargas |
 | `VDL_PROXY_MAP` | vacío | Proxies por plataforma |
 | `VDL_ADMIN_TOKEN` | vacío | Habilita `/api/admin/*` |
+| `VDL_HISTORY_ENABLED` | `true` | Guarda el historial de descargas del panel (IP + enlace) |
+| `VDL_HISTORY_MAX` | `300` | Cuántas descargas se conservan; las más viejas se borran solas |
+| `VDL_HISTORY_FILE` | `backend/history.jsonl` | Archivo del historial (ignorado por git) |
+| `VDL_GALLERY_ENABLED` | `true` | Muestra el carrusel de últimas descargas en la portada |
+| `VDL_GALLERY_MAX` | `12` | Tarjetas que ofrece el carrusel |
+| `VDL_GALLERY_MIN` | `2` | Por debajo de esto el carrusel no se muestra |
 
 Lista completa de variables de resiliencia: [RESILIENCIA.md](RESILIENCIA.md#13-referencia-variables-de-resiliencia)
 
@@ -293,9 +379,14 @@ Este MVP es de un solo proceso y guarda el estado en memoria. Para un servicio p
 6. **Restringir CORS** al dominio del frontend (ahora acepta todos).
 7. **Restringir `VDL_ALLOWED_DOMAINS`** si el servicio es público.
 8. **HTTPS + rate limiting en el proxy** (Nginx o Cloudflare).
-9. **Página y agente DMCA.** Descargar contenido con derechos de autor puede infringir
-   la ley y los términos de servicio de las plataformas. Opera en zona gris legal:
-   consulta asesoría antes de lanzarlo como negocio.
+9. **Páginas legales.** Ya existen `/terminos` (condiciones, licencia de uso, derechos de
+   autor con procedimiento de retirada, precisión de los materiales, descargo y
+   limitaciones) y `/privacidad` (datos personales y no personales, cookies, publicidad y
+   Google AdSense). **Antes de publicar hay que sustituir los marcadores entre corchetes**
+   —dominio, correo de contacto y jurisdicción— en `backend/static/terminos.html` y
+   `backend/static/privacidad.html`. Y recuerda que descargar contenido con derechos de
+   autor puede infringir la ley y los términos de servicio de las plataformas: esto es una
+   zona gris legal, consulta asesoría antes de lanzarlo como negocio.
 
 Detalle y razonamiento de cada punto: [RESILIENCIA.md](RESILIENCIA.md)
 

@@ -185,3 +185,30 @@ PLAYER_CLIENTS = [
     for c in os.getenv("VDL_PLAYER_CLIENTS", "").split(",")
     if c.strip()
 ]
+
+# --- Historial de descargas -------------------------------------------------
+# Registro de quién pidió qué enlace y cómo acabó, para el panel de control.
+# Guarda direcciones IP y enlaces (datos personales): el archivo está en
+# .gitignore y el endpoint va protegido con VDL_ADMIN_TOKEN en cuanto exista.
+# Ponlo a false si no quieres conservar ningún rastro de las descargas.
+HISTORY_ENABLED = _env_bool("VDL_HISTORY_ENABLED", True)
+
+# Cuántas descargas se conservan. El historial es acotado a propósito: al
+# superar el doble de este número, el archivo se recorta a las últimas.
+HISTORY_MAX = max(10, _env_int("VDL_HISTORY_MAX", 300))
+
+# Archivo del historial (JSONL, una instantánea por línea).
+HISTORY_FILE = os.getenv("VDL_HISTORY_FILE", str(BASE_DIR / "history.jsonl"))
+
+# --- Carrusel público de la portada -----------------------------------------
+# Muestra en la página principal una muestra de las últimas descargas: título,
+# miniatura y plataforma. Nunca la IP ni el enlace original.
+# Ponlo a false si prefieres que la portada no enseñe actividad de nadie.
+GALLERY_ENABLED = _env_bool("VDL_GALLERY_ENABLED", True)
+
+# Cuántas tarjetas ofrece el carrusel.
+GALLERY_MAX = max(1, _env_int("VDL_GALLERY_MAX", 12))
+
+# Por debajo de esta cantidad el carrusel no se muestra: una fila con una sola
+# tarjeta se ve rota, y es peor que no enseñar nada.
+GALLERY_MIN_ITEMS = max(1, _env_int("VDL_GALLERY_MIN", 2))

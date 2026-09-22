@@ -61,3 +61,12 @@ desktop.ini
 
 # Estado en tiempo de ejecucion del actualizador
 backend/update_state.json
+
+# Historial de descargas del panel: contiene direcciones IP y enlaces, que son
+# datos personales de quien uso el servicio. No debe acabar en el repositorio.
+backend/history.jsonl
+history.jsonl
+
+# Informe interno de revision tecnica: describe fallos de seguridad que todavia
+# no estan corregidos. El repositorio es publico, asi que esto se queda fuera.
+REVISION.md

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 import os
 import re
 import threading
@@ -32,7 +33,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config, downloader, updater
+from . import config, downloader, history, pairing, updater
 from . import status as system_status
 from .alerts import clear_history, send_alert
 from .canary import canaries
@@ -223,6 +224,21 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _track_app_presence(request: Request, call_next):
+    """Anota cuándo habló el APK con el servidor.
+
+    El widget envía `X-VDL-Client` en cada petición. Guardar la última vez que
+    llegó permite que el monitor distinga dos averías que se ven igual desde
+    fuera pero se arreglan distinto: «la app nunca se configuró» y «la app se
+    configuró pero la IP se movió».
+    """
+    client = request.headers.get(pairing.CLIENT_HEADER)
+    if client:
+        pairing.note_app_seen(client, _client_ip(request))
+    return await call_next(request)
+
+
 # ---------------------------------------------------------------------------
 # Rate limiting (en memoria; usar Redis si hay más de una instancia)
 # ---------------------------------------------------------------------------
@@ -295,6 +311,11 @@ class DownloadRequest(BaseModel):
     url: str
     kind: str = Field("mp4", pattern="^(mp4|mp3)$")
     format_id: str | None = None
+    # Opcionales: el navegador ya los conoce del análisis y sirven para que el
+    # carrusel de la portada y el historial tengan algo que enseñar aunque la
+    # descarga falle. Se validan como dato no confiable.
+    title: str | None = Field(None, max_length=300)
+    thumbnail: str | None = Field(None, max_length=600)
 
 
 class PrivateSourceRequest(BaseModel):
@@ -314,6 +335,24 @@ def require_admin(token: str | None) -> None:
         )
     if token != config.ADMIN_TOKEN:
         raise HTTPException(401, "Token de administración inválido.")
+
+
+def require_admin_if_configured(token: str | None) -> bool:
+    """Protege una ruta sensible solo si hay token configurado.
+
+    El historial contiene direcciones IP y enlaces, así que no debería estar al
+    aire. Pero devolver 404 cuando no hay `VDL_ADMIN_TOKEN` dejaría el panel
+    inservible en local, que es justo donde se prueba. Solución: se abre, y la
+    respuesta lo dice («protected: false») para que nadie exponga el historial
+    en internet sin enterarse.
+
+    Devuelve True si la respuesta queda protegida por token.
+    """
+    if not config.ADMIN_TOKEN:
+        return False
+    if token != config.ADMIN_TOKEN:
+        raise HTTPException(401, "Token de administración inválido.")
+    return True
 
 
 @app.get("/api/health")
@@ -383,6 +422,108 @@ def api_canary() -> dict:
     return canaries.status()
 
 
+@app.get("/api/history")
+def api_history(
+    limit: int = 100,
+    query: str | None = None,
+    state: str | None = None,
+    host: str | None = None,
+    token: str | None = Header(None, alias="X-Admin-Token"),
+) -> dict:
+    """Historial de descargas: quién pidió qué enlace y cómo acabó.
+
+    Contiene direcciones IP y enlaces, así que va protegido con el token en
+    cuanto hay uno configurado (`protected: true`). El filtro se puede hacer
+    aquí o en el navegador; se admite en el servidor para que el panel pueda
+    seguir pidiendo poco cuando el historial crece.
+
+    Ojo con `state`: se llama así y no `status` para no chocar con el módulo
+    `status` importado en este archivo.
+    """
+    protected = require_admin_if_configured(token)
+
+    limit = max(1, min(limit, config.HISTORY_MAX))
+    return {
+        "protected": protected,
+        "enabled": config.HISTORY_ENABLED,
+        "stats": history.stats(),
+        "entries": history.entries(limit=limit, query=query, status=state, host=host),
+    }
+
+
+@app.get("/api/gallery")
+def api_gallery(limit: int = 12) -> dict:
+    """Carrusel de la portada: una muestra de las últimas descargas.
+
+    Es público, así que solo sale lo que puede ver cualquiera: título, miniatura,
+    plataforma, formato y fecha. **Nunca** la IP ni el enlace original, porque el
+    enlace puede llevar identificadores de la sesión de quien lo pidió.
+
+    Si el archivo todavía está en el almacén temporal, se añade `preview_url`
+    para que la portada pueda reproducirlo en vez de quedarse en una foto.
+    """
+    if not config.GALLERY_ENABLED:
+        return {"enabled": False, "min_items": config.GALLERY_MIN_ITEMS, "items": []}
+
+    limit = max(1, min(limit, config.GALLERY_MAX))
+    items = history.gallery(limit=limit)
+
+    for item in items:
+        job = store.get(item.get("job_id") or "")
+        alive = (
+            job is not None
+            and job.status == "done"
+            and job.filepath
+            and Path(job.filepath).is_file()
+        )
+        item["preview_url"] = f"/api/preview/{job.id}" if alive else None
+        item["preview_kind"] = ("video" if job.kind == "mp4" else "audio") if alive else None
+
+    return {
+        "enabled": True,
+        "min_items": config.GALLERY_MIN_ITEMS,
+        "max": config.GALLERY_MAX,
+        "items": items,
+    }
+
+
+@app.get("/api/preview/{job_id}", include_in_schema=False)
+def api_preview(job_id: str) -> FileResponse:
+    """Sirve el archivo en línea para el carrusel, no como descarga.
+
+    `/api/file/{id}` manda `Content-Disposition: attachment`, que fuerza la
+    descarga y haría imposible reproducir nada en la página. Aquí se sirve
+    `inline` y con soporte de rangos (lo aporta `FileResponse`), para que se
+    pueda reproducir y saltar en la línea de tiempo.
+
+    Solo existe mientras el archivo siga en el almacén temporal: es una vista
+    previa de lo que acaba de pasar, no un archivo permanente.
+    """
+    job = store.get(job_id)
+    if not job or job.status != "done" or not job.filepath:
+        raise HTTPException(404, "La vista previa no está disponible.")
+
+    path = Path(job.filepath)
+    if not path.is_file():
+        raise HTTPException(410, "El archivo expiró y fue eliminado.")
+
+    media = mimetypes.guess_type(path.name)[0]
+    if not media:
+        media = "video/mp4" if job.kind == "mp4" else "audio/mpeg"
+
+    # El nombre se limpia igual que en /api/file: sin esto, un título con comillas
+    # o salto de línea rompería la cabecera.
+    stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", path.stem)[:120].strip() or "vista-previa"
+
+    return FileResponse(
+        path,
+        media_type=media,
+        filename=f"{stem}{path.suffix}",
+        content_disposition_type="inline",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.post("/api/admin/update")
 def api_admin_update(token: str | None = Header(None, alias="X-Admin-Token")) -> dict:
     """Revisa y aplica actualizaciones del motor ahora mismo."""
@@ -425,6 +566,23 @@ def api_widget() -> dict:
 def api_monitor() -> dict:
     """Estado completo para el panel de control."""
     return system_status.full_status()
+
+
+@app.get("/api/pairing")
+def api_pairing(
+    request: Request,
+    token: str | None = Header(None, alias="X-Admin-Token"),
+) -> dict:
+    """Enlace de conexión para el APK del monitor.
+
+    Devuelve las direcciones por las que el móvil puede llegar, el estado del
+    token y la última vez que la app contactó. El token completo y el enlace de
+    conexión solo se incluyen si quien pregunta demuestra conocer el token
+    (cabecera `X-Admin-Token`): es lo único que evita que cualquiera que abra
+    el monitor se lleve la credencial que reinicia el servicio.
+    """
+    authorized = bool(config.ADMIN_TOKEN) and token == config.ADMIN_TOKEN
+    return pairing.payload(request, authorized=authorized)
 
 
 @app.post("/api/admin/circuits/reset")
@@ -486,6 +644,25 @@ def api_admin_clear_alerts(token: str | None = Header(None, alias="X-Admin-Token
     return {"status": "historial_limpiado"}
 
 
+@app.post("/api/admin/history/clear")
+def api_admin_clear_history(token: str | None = Header(None, alias="X-Admin-Token")) -> dict:
+    """Borra el historial de descargas.
+
+    Es la salida de emergencia de los datos personales: si alguien pide que se
+    elimine su rastro, esto lo hace de una vez.
+
+    Se protege con la misma regla que la lectura del historial: exige el token
+    en cuanto existe. Si no hay token configurado, la lectura ya está abierta,
+    así que impedir el borrado solo estorbaría en local sin proteger nada.
+    """
+    require_admin_if_configured(token)
+    removed = history.clear()
+    return {
+        "status": "historial_de_descargas_vaciado",
+        "entradas_eliminadas": removed,
+    }
+
+
 @app.post("/api/admin/restart")
 def api_admin_restart(token: str | None = Header(None, alias="X-Admin-Token")) -> dict:
     """Sale del proceso para que el supervisor lo levante con la versión nueva."""
@@ -525,6 +702,59 @@ def monitor_page() -> FileResponse:
     return FileResponse(page, media_type="text/html")
 
 
+def _legal_page(filename: str) -> FileResponse:
+    """Sirve una página legal con URL limpia.
+
+    `StaticFiles(html=True)` solo resuelve `index.html` dentro de una carpeta, así
+    que `/terminos` daría 404 aunque exista `terminos.html`. Con estas rutas las
+    direcciones quedan limpias y estables, que es lo que se cita en los avisos de
+    derechos de autor y en los términos.
+    """
+    page = STATIC_DIR / filename
+    if not page.is_file():
+        raise HTTPException(404, "Esa página no está disponible.")
+    return FileResponse(page, media_type="text/html")
+
+
+@app.get("/terminos", include_in_schema=False)
+def terms_page() -> FileResponse:
+    """Términos de Servicio."""
+    return _legal_page("terminos.html")
+
+
+@app.get("/privacidad", include_in_schema=False)
+def privacy_page() -> FileResponse:
+    """Política de Privacidad."""
+    return _legal_page("privacidad.html")
+
+
+@app.get("/legal", include_in_schema=False)
+def legal_index() -> FileResponse:
+    """Alias corto: los términos son el documento principal."""
+    return _legal_page("terminos.html")
+
+
+def _apk_version_key(path: Path) -> tuple:
+    """Ordena APKs por la versión del nombre, no alfabéticamente.
+
+    Alfabéticamente, «…-1.0.apk» va antes que «…-1.1.apk» y el endpoint servía
+    la versión vieja aunque hubiera una nueva al lado. Se comparan los números
+    del nombre como números, así que 1.10 también gana a 1.9.
+    """
+    numbers = re.findall(r"\d+", path.stem)
+    return tuple(int(n) for n in numbers)
+
+
+def _newest_apk(candidates: list[Path]) -> Path:
+    """El APK de versión más alta y, entre iguales, el release.
+
+    Se prefiere el release porque el de depuración lleva otro identificador de
+    aplicación (`….debug`) y no es el que conviene instalar.
+    """
+    release = [p for p in candidates if "debug" not in p.name] or list(candidates)
+    return max(sorted(release), key=_apk_version_key)
+
+
 @app.get("/app.apk", include_in_schema=False)
 def download_apk() -> FileResponse:
     """Sirve el APK del widget.
@@ -544,10 +774,7 @@ def download_apk() -> FileResponse:
             "https://github.com/leonnnc/Ldownloader/tree/main/apk",
         )
 
-    # Prefiere la versión release: la de depuración lleva otro identificador y
-    # no es la que conviene instalar.
-    release = [p for p in candidates if "debug" not in p.name]
-    chosen = (release or candidates)[0]
+    chosen = _newest_apk(candidates)
 
     return FileResponse(
         chosen,
@@ -588,7 +815,23 @@ async def api_download(payload: DownloadRequest, request: Request) -> dict:
             "Falta FFmpeg en el servidor: no se puede convertir a MP3.",
         )
 
-    job = store.create(url=url, kind=payload.kind, format_id=payload.format_id)
+    # La miniatura la elige el cliente: se acepta solo si es una URL http(s), y
+    # si no lo es se guarda el título sin imagen. Nunca se sirve desde aquí.
+    thumbnail = payload.thumbnail or None
+    if thumbnail and urlparse(thumbnail).scheme.lower() not in ("http", "https"):
+        thumbnail = None
+
+    # La IP solo se usa para el historial del panel. Ojo: mientras el punto 4 de
+    # REVISION.md no esté corregido, sale de X-Forwarded-For y es falsificable,
+    # así que en el panel se etiqueta como «IP declarada», no como certeza.
+    job = store.create(
+        url=url,
+        kind=payload.kind,
+        format_id=payload.format_id,
+        client_ip=_client_ip(request),
+        title=payload.title,
+        thumbnail=thumbnail,
+    )
     executor.submit(downloader.run_job, job)
     log.info("Job %s encolado (%s) -> %s", job.id, payload.kind, url)
     return {"job_id": job.id, "status": job.status}

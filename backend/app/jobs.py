@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from . import config
+from . import config, history
 
 
 @dataclass
@@ -58,24 +58,66 @@ class JobStore:
         config.DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # -- CRUD ---------------------------------------------------------------
-    def create(self, url: str, kind: str, format_id: Optional[str] = None) -> Job:
-        job = Job(id=uuid.uuid4().hex, url=url, kind=kind, format_id=format_id)
+    def create(self, url: str, kind: str, format_id: Optional[str] = None,
+               client_ip: Optional[str] = None, title: Optional[str] = None,
+               thumbnail: Optional[str] = None) -> Job:
+        """Crea el trabajo y lo anota en el historial.
+
+        La IP se recibe desde el endpoint (es el único sitio donde se conoce) y
+        solo sirve para el historial: el trabajo en sí no la necesita. El título
+        y la miniatura vienen del análisis previo del navegador y alimentan el
+        carrusel de la portada.
+        """
+        job = Job(id=uuid.uuid4().hex, url=url, kind=kind, format_id=format_id,
+                  title=title)
         with self._lock:
             self._jobs[job.id] = job
+        history.record(
+            job.id, url=url, kind=kind, ip=client_ip, format_id=format_id,
+            title=title, thumbnail=thumbnail,
+        )
         return job
 
     def get(self, job_id: str) -> Optional[Job]:
         with self._lock:
             return self._jobs.get(job_id)
 
+    # Estados en los que el trabajo ya no va a cambiar por sí solo.
+    TERMINAL = ("done", "error")
+
     def update(self, job_id: str, **fields) -> Optional[Job]:
+        """Actualiza el trabajo y cierra su entrada del historial al terminar.
+
+        Centralizar el cierre aquí evita tener que acordarse de anotarlo en cada
+        camino de salida de `run_job`: cualquier código que marque el trabajo
+        como terminado deja el historial coherente.
+        """
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
                 return None
+
+            previous = job.status
             for key, value in fields.items():
                 setattr(job, key, value)
-            return job
+
+            finished = (
+                "status" in fields
+                and job.status in self.TERMINAL
+                and previous not in self.TERMINAL
+            )
+            snapshot = (job.status, job.title, job.filesize, job.error) if finished else None
+
+        if snapshot:
+            history.finish(
+                job_id,
+                status=snapshot[0],
+                title=snapshot[1],
+                filesize=snapshot[2],
+                error=snapshot[3] if snapshot[0] == "error" else None,
+            )
+
+        return job
 
     def all_jobs(self) -> List[Job]:
         with self._lock:
